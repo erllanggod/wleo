@@ -6,7 +6,8 @@
   "sukisu_susfs": {
     "good": "b16e899a555e9b96aa1225f049cd7274820ca5b8",
     "bad": [
-      "1cfa57340590971cba7521ed536da8ebbedc5f0a"
+      "1cfa57340590971cba7521ed536da8ebbedc5f0a",
+      "850149efa429d9076696c9ccef2336302d50d955"
     ]
   },
   "bakasu_susfs": {
