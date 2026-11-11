@@ -37,22 +37,41 @@ latest_sha_or_empty() {
 
 ref_exists() {
     local url_template="$1" sha="$2"
-    local repo_base branch compare_url status
+    local repo_base branch compare_url status body_file http_code check_url
     [ -n "$sha" ] && [ "$sha" != "null" ] || return 1
 
+    body_file="$(mktemp)"
     case "$url_template" in
         *api.github.com*/commits/*)
             repo_base="${url_template%/commits/*}"
             branch="${url_template##*/commits/}"
             compare_url="${repo_base}/compare/${branch}...${sha}"
-            status=$(curl -sL --max-time 15 "$compare_url" 2>/dev/null | jq -r '.status // empty')
-            [ "$status" = "identical" ] || [ "$status" = "behind" ]
+            http_code=$(curl -sL -o "$body_file" -w '%{http_code}' --max-time 15 "$compare_url" 2>/dev/null) || http_code="000"
             ;;
         *)
-            local check_url http_code
             check_url="${url_template%/*}/${sha}"
-            http_code=$(curl -sL -o /dev/null -w '%{http_code}' --max-time 15 "$check_url" 2>/dev/null) || return 1
-            [ "$http_code" = "200" ]
+            http_code=$(curl -sL -o "$body_file" -w '%{http_code}' --max-time 15 "$check_url" 2>/dev/null) || http_code="000"
+            ;;
+    esac
+
+    case "$http_code" in
+        200)
+            case "$url_template" in
+                *api.github.com*/commits/*)
+                    status=$(jq -r '.status // empty' "$body_file" 2>/dev/null)
+                    rm -f "$body_file"
+                    [ "$status" = "identical" ] || [ "$status" = "behind" ]
+                    ;;
+                *) rm -f "$body_file"; return 0 ;;
+            esac
+            ;;
+        404|422)
+            rm -f "$body_file"; return 1
+            ;;
+        *)
+            rm -f "$body_file"
+            warn "scout: couldn't verify pinned ${sha:0:12} (HTTP ${http_code}) — assuming it still exists"
+            return 0
             ;;
     esac
 }
@@ -71,8 +90,6 @@ resolve_component() {
         fi
     fi
 
-    # susfs4ksu is always pinned: kernel-source SUSFS hooks are ported to one specific
-    # susfs4ksu version, so it only moves when the pin in manifest.json is bumped by hand.
     if [ "${RUN_MODE^^}" = "RELEASE" ] || [ "$key" = "susfs4ksu" ]; then
         [ -n "$good" ] || error "scout: ${key} dikunci ke pin tapi belum ada pin yang valid di manifest.json."
         ref="$good"; candidate="false"

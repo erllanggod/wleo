@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: "-DumpC2J"
+      kernel_branch:
+        description: "Kernel Source Branch"
+        required: true
+        type: string
+        default: "android14-6.6"
       clang_variant:
         description: "Clang Toolchain (shared across all builds)"
         required: true
@@ -17,6 +22,7 @@ on:
           - cirrus
           - weebx
           - zyc
+          - cbl
           - aosp
         default: neutron
       hz:
@@ -163,7 +169,7 @@ jobs:
       - name: Clone Kernel Source
         run: |
           git clone --depth=50 --filter=blob:none \
-            --branch android14-6.6 \
+            --branch "${{ inputs.kernel_branch }}" \
             https://${{ secrets.GH_TOKEN }}@github.com/erllanggod/miaw.git \
             kernel-source
 
@@ -229,14 +235,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ccache curl flex git gnupg gperf \
             libssl-dev libxml2 lzop squashfs-tools rsync zip zlib1g-dev \
-            python3 clang lld llvm jq
+            python3 clang lld llvm jq dwarves libelf-dev
 
       - name: Get Cache Week
         id: cacheweek
         if: inputs.clang_variant != 'neutron'
         run: |
-          # aosp: resolve the latest version -> cache key uses the version (re-download only when a new version appears)
-          # other variants fetch "latest" -> keep the weekly key
           if [ "${{ inputs.clang_variant }}" = "aosp" ]; then
             OUT=$(bash builder/scripts/lib/resolve_aosp_clang.sh)
             echo "$OUT" >> "$GITHUB_ENV"
@@ -323,7 +327,7 @@ jobs:
       - name: Notify Telegram
         if: success()
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.GRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: bash builder/scripts/notify_telegram.sh
 

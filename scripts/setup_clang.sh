@@ -12,6 +12,7 @@ if [ "${CLANG_VARIANT}" != "neutron" ] && [ -x "${TOOLCHAIN_DIR}/bin/clang" ]; t
     aosp)   COMPILER_STRING="AOSP Clang ${VER}" ;;
     weebx)  COMPILER_STRING="WeebX Clang ${VER}" ;;
     zyc)    COMPILER_STRING="ZyC Clang ${VER}" ;;
+    cbl)   COMPILER_STRING="ClangBuiltLinux clang ${VER}" ;;
     *)      COMPILER_STRING="${CLANG_VARIANT} Clang ${VER}" ;;
   esac
   echo "CLANG_VARIANT=${CLANG_VARIANT}" >> "${GITHUB_ENV}"
@@ -64,15 +65,12 @@ case "${CLANG_VARIANT}" in
     COMPILER_STRING="Cirrus Clang ${GF_VERSION}"
     ;;
   aosp)
-    # version/tag come from resolve_aosp_clang.sh (latest); falls back to the pinned known-good pair
     PIN_VER="r596125"; PIN_TAG="android-17.0.0_r1"
     CLANG_VER="${AOSP_CLANG_VER:-$PIN_VER}"
     AOSP_TAG="${AOSP_CLANG_TAG:-$PIN_TAG}"
     mkdir -p "${HOME}/toolchains/aosp-clang"
     AOSP_TGZ="/tmp/aosp-clang.tar.gz"
 
-    # googlesource +archive is generated on the fly: it cannot be resumed (-C -), and 300s is not enough
-    # for 500MB+ at runner speeds. Download the whole file on every attempt, then verify the gzip.
     aosp_download() {
       local url="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/${2}/clang-${1}.tar.gz" attempt
       for attempt in 1 2 3; do
@@ -142,6 +140,25 @@ case "${CLANG_VARIANT}" in
     CLANG_BIN="${HOME}/toolchains/zyc-clang/bin"
     ZYC_VER=$("${CLANG_BIN}/clang" --version | head -n1 | grep -oP 'clang version \K[0-9.]+' || echo "latest")
     COMPILER_STRING="ZyC Clang ${ZYC_VER}"
+    ;;
+  cbl)
+    CBL_VER="${CBL_CLANG_VER:-21.1.8}"
+    CBL_ARCH="$(uname -m)"; case "${CBL_ARCH}" in x86_64|aarch64) ;; *) echo "[!] cbl: unsupported arch ${CBL_ARCH}"; exit 1 ;; esac
+    CBL_URL="https://cdn.kernel.org/pub/tools/llvm/files/llvm-${CBL_VER}-${CBL_ARCH}.tar.xz"
+    echo "[*] kernel.org URL: ${CBL_URL}"
+    mkdir -p "${HOME}/toolchains/cbl-clang"
+    curl -fL --retry 5 --retry-delay 15 --retry-all-errors -C - --max-time 600 -o /tmp/cbl-clang.tar.xz "${CBL_URL}" || { echo "[!] kernel.org clang ${CBL_VER} download failed (check the version exists)"; exit 1; }
+    tar -tf /tmp/cbl-clang.tar.xz > /tmp/cbl-clang.list
+    BIN_PATH=$(grep -m1 'bin/clang$' /tmp/cbl-clang.list || true)
+    [ -z "$BIN_PATH" ] && { echo "[!] bin/clang not found in kernel.org tarball"; head -n 10 /tmp/cbl-clang.list; exit 1; }
+    echo "[*] bin/clang found at: ${BIN_PATH}"
+    DEPTH=$(echo "$BIN_PATH" | tr '/' '\n' | wc -l)
+    STRIP=$(( DEPTH - 2 )); [ "$STRIP" -lt 0 ] && STRIP=0
+    tar -xf /tmp/cbl-clang.tar.xz -C "${HOME}/toolchains/cbl-clang" --strip-components=${STRIP}
+    rm -f /tmp/cbl-clang.tar.xz /tmp/cbl-clang.list
+    CLANG_BIN="${HOME}/toolchains/cbl-clang/bin"
+    CBL_REAL=$("${CLANG_BIN}/clang" --version | head -n1 | grep -oP 'clang version \K[0-9.]+' || echo "${CBL_VER}")
+    COMPILER_STRING="ClangBuiltLinux clang ${CBL_REAL}"
     ;;
   *)
     echo "[!] Unknown clang variant: ${CLANG_VARIANT}"

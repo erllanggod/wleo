@@ -28,8 +28,6 @@ format_changelog() {
   local commit_body subject type desc key trailer_val
 
   while IFS= read -r -d $'\x1e' commit_body; do
-    # git separates entries with a newline, so every commit after the first starts with a blank
-    # line and its subject read as empty. Trim leading whitespace first.
     commit_body="${commit_body#"${commit_body%%[![:space:]]*}"}"
     [ -z "$commit_body" ] && continue
     subject=$(head -n1 <<< "$commit_body")
@@ -104,7 +102,6 @@ BUILD_DATE=$(date -u "+%Y-%m-%d %H:%M UTC")
 DUR="${BUILD_DURATION_SEC:-0}"
 DUR_TEXT="$((DUR / 60))m $((DUR % 60))s"
 
-# Caption: what is inside this kernel (all values come from the finished build, see lib/features.sh)
 CAPTION_LIST=""
 while IFS= read -r feat_line; do
   [ -n "$feat_line" ] && CAPTION_LIST="${CAPTION_LIST}• $(esc "$feat_line")"$'\n'

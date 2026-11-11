@@ -16,7 +16,6 @@ run_make() {
   return "${PIPESTATUS[0]}"
 }
 
-# Note: warn() is not defined when this file is sourced by build.sh, so use echo.
 if ! run_make "$KERNEL_LDFLAGS"; then
   if grep -q "Inconsistent kallsyms data" "$BUILD_LOG" && [[ "$KERNEL_LDFLAGS" == *"--icf=all"* ]]; then
     echo "[!] Inconsistent kallsyms data with --icf=all, retrying once with --icf=safe" >&2
@@ -32,8 +31,6 @@ if ! run_make "$KERNEL_LDFLAGS"; then
   fi
 fi
 
-# Keep the manager version lines Kbuild printed ("-- <name> version: ...") so the
-# Telegram caption shows exactly what was compiled.
 grep -E '^-- ' "$BUILD_LOG" > "$OUT_DIR/.build_info.txt" 2>/dev/null || true
 
 rm -f "$BUILD_LOG"

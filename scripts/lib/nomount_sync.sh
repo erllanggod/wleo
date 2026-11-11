@@ -1,14 +1,4 @@
 #!/bin/bash
-# Sync NoMount before compile (only when NOMOUNT=on).
-#
-# Source order, first one that works wins:
-#   1. upstream (fresh clone, full history, 3 tries)
-#   2. last known-good copy saved by an earlier successful build (hidden git ref)
-#   3. the copy already committed in the kernel tree
-#
-# Whatever ends up in fs/nomount is exactly what gets labelled, so the label
-# (NOMOUNT_VER, e.g. "v2.2.0 (605)") always matches what was compiled.
-# Ref defaults to branch "dev"; override with NOMOUNT_REF (branch, tag, or SHA).
 set -e
 
 if [ "$NOMOUNT" != "on" ]; then
@@ -28,7 +18,6 @@ NM_DEST="$KERNEL_DIR/fs/nomount"
 
 NOMOUNT_SRC="" NOMOUNT_SHA="" NOMOUNT_TAG="" NOMOUNT_COUNT="" NOMOUNT_VER=""
 
-# Copy a kernel/src directory into the kernel tree and make sure the fs hooks exist.
 _nm_install() {
   rm -rf "$NM_DEST"
   mkdir -p "$NM_DEST"
@@ -46,9 +35,6 @@ _nm_install() {
   fi
 }
 
-# NoMount's own Makefile only embeds the commit count when it can find its .git,
-# which never exists inside the kernel tree. Stamp it into the header so the
-# kernel reports the same "(count)" that the Telegram caption shows.
 _nm_stamp_count() {
   local count="$1" hdr="$NM_DEST/nomount.h"
   if [ -f "$hdr" ] && grep -q '^#define NOMOUNT_BASE_VERSION ' "$hdr"; then
@@ -59,12 +45,10 @@ _nm_stamp_count() {
   fi
 }
 
-# 1. upstream
 _nm_try_upstream() {
   local dir="$NM_WORK/upstream"
   rm -rf "$dir"
   if ! timeout 180 git clone --quiet --filter=blob:none -b "$NOMOUNT_REF" "$NOMOUNT_REPO" "$dir" 2>/dev/null; then
-    # NOMOUNT_REF may be a bare commit SHA, which clone -b cannot take
     rm -rf "$dir"
     timeout 180 git clone --quiet --filter=blob:none "$NOMOUNT_REPO" "$dir" 2>/dev/null || return 1
     git -C "$dir" checkout --quiet "$NOMOUNT_REF" 2>/dev/null || return 1
@@ -81,7 +65,6 @@ _nm_try_upstream() {
   NOMOUNT_SRC="upstream"
 }
 
-# 2. last known-good copy
 _nm_try_lastgood() {
   [ -n "$NM_STORE_REMOTE" ] || return 1
   local dir="$NM_WORK/lastgood" repo="$NM_WORK/store-fetch"
@@ -98,7 +81,6 @@ _nm_try_lastgood() {
   NOMOUNT_SRC="last-good"
 }
 
-# Save what we just used so a later failed download can fall back to it.
 _nm_save_lastgood() {
   [ -n "$NM_STORE_REMOTE" ] && [ -n "${GH_TOKEN:-}" ] || return 0
   local pack="$NM_WORK/pack" repo="$NM_WORK/store-push"
@@ -109,7 +91,7 @@ _nm_save_lastgood() {
   (
     git -C "$repo" init -q
     git -C "$repo" add "$NM_STORE_FILE"
-    git -C "$repo" -c user.name="DumpC2J Bot" -c user.email="dumpc2j-bot@users.noreply.github.com" \
+    git -C "$repo" -c user.name="meow bot" -c user.email="bot@meow" \
       commit -q -m "nomount ${NOMOUNT_TAG} (${NOMOUNT_COUNT}) ${NOMOUNT_SHA}"
     timeout 60 git "${NM_GIT_AUTH[@]}" -C "$repo" push -q -f "$NM_STORE_REMOTE" "HEAD:$NM_STORE_REF"
   ) >/dev/null 2>&1 && echo "[nomount] saved last-good copy (${NOMOUNT_TAG} (${NOMOUNT_COUNT}))" \
@@ -135,7 +117,6 @@ if [ -n "$NOMOUNT_SRC" ]; then
   if [ -n "$NOMOUNT_COUNT" ]; then NOMOUNT_VER="${NOMOUNT_TAG} (${NOMOUNT_COUNT})"; else NOMOUNT_VER="${NOMOUNT_TAG}"; fi
   if [ "$NOMOUNT_SRC" = "upstream" ]; then _nm_save_lastgood || true; fi
 else
-  # 3. copy already in the kernel tree: only the base version is provable from source
   echo "[nomount] WARN: no upstream and no last-good copy, using NoMount already in kernel tree" >&2
   NOMOUNT_SRC="in-tree"
   NOMOUNT_SHA="in-tree"

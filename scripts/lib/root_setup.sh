@@ -80,10 +80,6 @@ else
       (cd "$SUSFS_DIR" && git remote set-url origin "$SUSFS_REPO_URL" && git_retry fetch origin "$SUSFS_BRANCH") || { echo "[-] SUSFS fetch failed/timed out"; return 1; }
     fi
 
-    # ksu-next (pershoot dev-susfs) udah di-rebase ke SuSFS v2.3.0 baru dan manggil
-    # susfs_add_sus_type / susfs_add_sus_avd_allowed_by_type, yang gak ada di pin susfs4ksu
-    # global. Cuma ksu-next yang pakai susfs4ksu terpisah (manifest .susfs4ksu_next.good,
-    # kosong = HEAD branch); root lain tetap di pin global.
     if [ "${ROOT:-}" = "ksu-next" ]; then
       NEXT_SUSFS_PIN=$(jq -r '.susfs4ksu_next.good // empty' "$SCRIPT_DIR/checkpoint/manifest.json" 2>/dev/null || true)
       if [ -n "$NEXT_SUSFS_PIN" ]; then
@@ -144,9 +140,6 @@ else
 fi
 
 if [ "$VARIANT" == "susfs" ]; then
-  # Root managers that already ship the SUSFS v2.3.0 kernel API (preinit + selinux_hide)
-  # need no fixup: the legacy script rewrites sucompat.h/selinux.c/rules.c back to the old
-  # API and breaks them (e.g. conflicting ksu_handle_faccessat prototypes).
   if grep -qs "ksu_setup_preinit_file" "$MODULES_DIR/$REPO_NAME/kernel/preinit/preinit.c"; then
     echo "[+] $REPO_NAME already implements the SUSFS v2.3.0 kernel API — skipping legacy SUSFS fixup"
   else

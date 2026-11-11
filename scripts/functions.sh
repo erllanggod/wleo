@@ -4,7 +4,6 @@ warn()  { echo "[!] $*" >&2; }
 error() { echo "[-] $*" >&2; exit 1; }
 run_quiet() { "$@" > /dev/null 2>&1 || true; }
 
-# Shared upstream source registry — single source of truth for scout.sh + upstream_check.sh
 declare -A DUMPC2J_SOURCES=(
   [sukisu_root]="SukiSU-Ultra (root)|https://api.github.com/repos/SukiSU-Ultra/SukiSU-Ultra/commits/main|.sha"
   [sukisu_susfs]="SukiSU-Ultra (susfs)|https://api.github.com/repos/SukiSU-Ultra/SukiSU-Ultra/commits/builtin|.sha"

@@ -63,7 +63,7 @@ case "$LTO_VAL" in
 esac
 
 "$KERNEL_DIR/scripts/config" --file "$OUT_DIR/.config" \
-  -e CONFIG_DEBUG_INFO_REDUCED \
+  -d CONFIG_DEBUG_INFO_REDUCED \
   -d CONFIG_DEBUG_MISC -d CONFIG_BT_DEBUGFS \
   -d CONFIG_DEBUG_MEMORY_INIT -d CONFIG_PROFILING \
   -d CONFIG_PRINTK_CALLER -d CONFIG_RCU_TRACE \
@@ -105,8 +105,6 @@ CMDLINE_APPEND="${CMDLINE_APPEND# }"
 [ "$DROIDSPACES" == "on" ] && \
   bash "$KERNEL_DIR/setup_droidspaces.sh" "$OUT_DIR"
 
-# Droidspaces optional features (macvlan, IPv6 NAT). Set BEFORE olddefconfig so Kconfig
-# resolves their dependencies; verified afterwards (warn only, never fails the build).
 DS_OPTIONAL_CFGS=(MACVLAN IP6_NF_IPTABLES IP6_NF_NAT IP6_NF_TARGET_MASQUERADE)
 DS_VERIFY_CFGS=(MACVLAN IP6_NF_NAT IP6_NF_TARGET_MASQUERADE)
 if [ "$DROIDSPACES" == "on" ]; then
