@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+echo 1000 > /proc/self/oom_score_adj 2>/dev/null || true
+
 CPUS=$(nproc --all)
 echo "[+] Building with ${CPUS} threads..."
 
