@@ -10,12 +10,21 @@ MANIFEST="${BUILDER_DIR}/scripts/checkpoint/manifest.json"
 RUN_MODE="${RUN_MODE:-Test}"
 CANDIDATE_CLAIMED="false"
 
+api_curl() {
+    local url="$1"; shift
+    if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$url" == https://api.github.com/* ]]; then
+        curl -H "Authorization: Bearer ${GITHUB_TOKEN}" "$@" "$url"
+    else
+        curl "$@" "$url"
+    fi
+}
+
 latest_sha_or_empty() {
     local label="$1" url="$2" jq_filter="$3"
     local body_file http_code curl_exit sha
 
     body_file="$(mktemp)"
-    if http_code=$(curl -sL -o "$body_file" -w '%{http_code}' --max-time 20 "$url"); then
+    if http_code=$(api_curl "$url" -sL -o "$body_file" -w '%{http_code}' --max-time 20); then
         curl_exit=0
     else
         curl_exit=$?
@@ -46,7 +55,7 @@ ref_exists() {
             repo_base="${url_template%/commits/*}"
             branch="${url_template##*/commits/}"
             compare_url="${repo_base}/compare/${branch}...${sha}"
-            http_code=$(curl -sL -o "$body_file" -w '%{http_code}' --max-time 15 "$compare_url" 2>/dev/null) || http_code="000"
+            http_code=$(api_curl "$compare_url" -sL -o "$body_file" -w '%{http_code}' --max-time 15 2>/dev/null) || http_code="000"
             ;;
         *)
             check_url="${url_template%/*}/${sha}"
