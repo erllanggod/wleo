@@ -272,6 +272,7 @@ jobs:
           ROOT: ${{ env.ACTUAL_ROOT }}
           VARIANT: ${{ matrix.variant }}
           RUN_MODE: Test
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash builder/scripts/scout.sh
 
       - name: Setup ccache
